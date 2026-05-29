@@ -24,12 +24,109 @@ jobs:
       - name: Generate Android/iOS structure
         run: flutter create --org com.aijyotish --project-name ai_jyotish --platforms android,ios .
 
-      - name: Debug - print generated gradle files
+      - name: Fix Gradle - use old buildscript approach for plugin compatibility
         run: |
-          echo "=== settings.gradle ===" && cat android/settings.gradle
-          echo "=== build.gradle ===" && cat android/build.gradle
-          echo "=== app/build.gradle ===" && cat android/app/build.gradle
-          echo "=== gradle-wrapper.properties ===" && cat android/gradle/wrapper/gradle-wrapper.properties
+          # 1. settings.gradle - simple, no pluginManagement
+          cat > android/settings.gradle << 'EOF'
+          include ":app"
+          EOF
+
+          # 2. Root build.gradle - buildscript with classpath
+          cat > android/build.gradle << 'EOF'
+          buildscript {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+              dependencies {
+                  classpath "com.android.tools.build:gradle:8.1.0"
+                  classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22"
+              }
+          }
+
+          allprojects {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+
+          rootProject.buildDir = "../build"
+          subprojects {
+              project.buildDir = "${rootProject.buildDir}/${project.name}"
+          }
+          subprojects {
+              project.evaluationDependsOn(":app")
+          }
+
+          tasks.register("clean", Delete) {
+              delete rootProject.buildDir
+          }
+          EOF
+
+          # 3. App build.gradle - old apply plugin approach
+          cat > android/app/build.gradle << 'EOF'
+          def localProperties = new Properties()
+          def localPropertiesFile = rootProject.file("local.properties")
+          if (localPropertiesFile.exists()) {
+              localPropertiesFile.withReader("UTF-8") { reader ->
+                  localProperties.load(reader)
+              }
+          }
+
+          def flutterRoot = localProperties.getProperty("flutter.sdk")
+          if (flutterRoot == null) {
+              throw new GradleException("Flutter SDK not found.")
+          }
+
+          apply plugin: "com.android.application"
+          apply plugin: "kotlin-android"
+          apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
+
+          android {
+              namespace "com.aijyotish.app"
+              compileSdk 35
+              ndkVersion flutter.ndkVersion
+
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+
+              defaultConfig {
+                  applicationId "com.aijyotish.app"
+                  minSdk 23
+                  targetSdk 35
+                  versionCode 1
+                  versionName "1.0.0"
+              }
+
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.debug
+                      minifyEnabled false
+                  }
+              }
+          }
+
+          flutter {
+              source "../.."
+          }
+          EOF
+
+          # 4. Gradle wrapper to 8.3
+          sed -i 's|gradle-[0-9.]*-all\.zip|gradle-8.3-all.zip|g' android/gradle/wrapper/gradle-wrapper.properties
+
+          # 5. gradle.properties
+          cat > android/gradle.properties << 'EOF'
+          org.gradle.jvmargs=-Xmx4G
+          android.useAndroidX=true
+          android.enableJetifier=true
+          EOF
 
       - run: flutter pub get
 
