@@ -21,7 +21,21 @@ jobs:
           flutter-version: '3.24.0'
           channel: 'stable'
 
-      - run: flutter pub get
+      - name: Create Flutter project and copy files
+        run: |
+          flutter create --org com.aijyotish --project-name ai_jyotish --platforms android,ios temp_project
+          cp -r temp_project/android android
+          cp -r temp_project/ios ios
+          cp temp_project/android/app/src/main/AndroidManifest.xml /dev/null || true
+          rm -rf temp_project
+          flutter pub get
+
+      - name: Update Android config
+        run: |
+          sed -i 's/com.example.ai_jyotish/com.aijyotish.app/g' android/app/build.gradle
+          sed -i 's/namespace.*/namespace "com.aijyotish.app"/g' android/app/build.gradle
+          sed -i 's/applicationId.*/applicationId "com.aijyotish.app"/g' android/app/build.gradle
+
       - run: flutter build apk --release
 
       - uses: actions/upload-artifact@v4
