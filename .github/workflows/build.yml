@@ -26,15 +26,115 @@ jobs:
           flutter create --org com.aijyotish --project-name ai_jyotish --platforms android,ios temp_project
           cp -r temp_project/android android
           cp -r temp_project/ios ios
-          cp temp_project/android/app/src/main/AndroidManifest.xml /dev/null || true
           rm -rf temp_project
-          flutter pub get
 
-      - name: Update Android config
+      - name: Fix Android build config
         run: |
-          sed -i 's/com.example.ai_jyotish/com.aijyotish.app/g' android/app/build.gradle
-          sed -i 's/namespace.*/namespace "com.aijyotish.app"/g' android/app/build.gradle
-          sed -i 's/applicationId.*/applicationId "com.aijyotish.app"/g' android/app/build.gradle
+          cat > android/app/build.gradle << 'GRADLE'
+          plugins {
+              id "com.android.application"
+              id "kotlin-android"
+              id "dev.flutter.flutter-gradle-plugin"
+          }
+
+          android {
+              namespace "com.aijyotish.app"
+              compileSdk 35
+              ndkVersion flutter.ndkVersion
+
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+
+              kotlinOptions {
+                  jvmTarget = '17'
+              }
+
+              defaultConfig {
+                  applicationId "com.aijyotish.app"
+                  minSdk 23
+                  targetSdk 35
+                  versionCode 1
+                  versionName "1.0.0"
+              }
+
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.debug
+                      minifyEnabled true
+                      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+                  }
+              }
+          }
+
+          flutter {
+              source '../..'
+          }
+          GRADLE
+
+      - name: Update android/build.gradle
+        run: |
+          cat > android/build.gradle << 'GRADLE'
+          allprojects {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+
+          rootProject.buildDir = '../build'
+          subprojects {
+              project.buildDir = "${rootProject.buildDir}/${project.name}"
+          }
+          subprojects {
+              project.evaluationDependsOn(':app')
+          }
+
+          tasks.register("clean", Delete) {
+              delete rootProject.buildDir
+          }
+          GRADLE
+
+      - name: Update android/settings.gradle
+        run: |
+          cat > android/settings.gradle << 'GRADLE'
+          pluginManagement {
+              def flutterSdkPath = {
+                  def properties = new Properties()
+                  file("local.properties").withInputStream { properties.load(it) }
+                  def flutterSdkPath = properties.getProperty("flutter.sdk")
+                  assert flutterSdkPath != null, "flutter.sdk not set in local.properties"
+                  return flutterSdkPath
+              }()
+
+              includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
+
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+
+          plugins {
+              id "dev.flutter.flutter-plugin-loader" version "1.0.0"
+              id "com.android.application" version "8.1.0" apply false
+              id "org.jetbrains.kotlin.android" version "1.9.22" apply false
+          }
+
+          include ":app"
+          GRADLE
+
+      - name: Update gradle.properties
+        run: |
+          cat > android/gradle.properties << 'PROPS'
+          org.gradle.jvmargs=-Xmx4G
+          android.useAndroidX=true
+          android.enableJetifier=true
+          PROPS
+
+      - run: flutter pub get
 
       - run: flutter build apk --release
 
