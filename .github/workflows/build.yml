@@ -24,32 +24,12 @@ jobs:
       - name: Generate Android/iOS structure
         run: flutter create --org com.aijyotish --project-name ai_jyotish --platforms android,ios .
 
-      - name: Fix Gradle version and Flutter plugin setup
+      - name: Debug - print generated gradle files
         run: |
-          # Upgrade Gradle wrapper (flutter create generates 7.6.3, AGP needs 8.0+)
-          sed -i 's|gradle-[0-9.]*-all\.zip|gradle-8.3-all.zip|g' android/gradle/wrapper/gradle-wrapper.properties
-
-          # Fix root build.gradle - ensure library plugins get Flutter extension
-          cat > android/build.gradle << 'GRADLE'
-          allprojects {
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
-
-          rootProject.buildDir = "../build"
-          subprojects {
-              project.buildDir = "${rootProject.buildDir}/${project.name}"
-          }
-          subprojects {
-              project.evaluationDependsOn(":app")
-          }
-
-          tasks.register("clean", Delete) {
-              delete rootProject.buildDir
-          }
-          GRADLE
+          echo "=== settings.gradle ===" && cat android/settings.gradle
+          echo "=== build.gradle ===" && cat android/build.gradle
+          echo "=== app/build.gradle ===" && cat android/app/build.gradle
+          echo "=== gradle-wrapper.properties ===" && cat android/gradle/wrapper/gradle-wrapper.properties
 
       - run: flutter pub get
 
