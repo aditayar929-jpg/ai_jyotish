@@ -39,6 +39,22 @@ jobs:
           }
           GRADLE
 
+      - name: Fix Gradle wrapper and properties
+        run: |
+          mkdir -p android/gradle/wrapper
+          cat > android/gradle/wrapper/gradle-wrapper.properties << 'PROPS'
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.3-all.zip
+          PROPS
+          cat > android/gradle.properties << 'PROPS'
+          org.gradle.jvmargs=-Xmx4G
+          android.useAndroidX=true
+          android.enableJetifier=true
+          PROPS
+
       - name: Fix settings.gradle with Flutter plugin loader
         run: |
           cat > android/settings.gradle << 'GRADLE'
