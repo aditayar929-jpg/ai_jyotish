@@ -21,14 +21,14 @@ jobs:
           flutter-version: '3.24.0'
           channel: 'stable'
 
-      - name: Create Flutter project and copy files
+      - name: Create Flutter project structure
         run: |
           flutter create --org com.aijyotish --project-name ai_jyotish --platforms android,ios temp_project
           cp -r temp_project/android android
           cp -r temp_project/ios ios
           rm -rf temp_project
 
-      - name: Fix Android build config
+      - name: Override app build.gradle for signing and minification
         run: |
           cat > android/app/build.gradle << 'GRADLE'
           plugins {
@@ -72,77 +72,6 @@ jobs:
               source '../..'
           }
           GRADLE
-
-      - name: Update android/build.gradle
-        run: |
-          cat > android/build.gradle << 'GRADLE'
-          allprojects {
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
-
-          rootProject.buildDir = '../build'
-
-          subprojects {
-              project.buildDir = "${rootProject.buildDir}/${project.name}"
-          }
-
-          tasks.register("clean", Delete) {
-              delete rootProject.buildDir
-          }
-          GRADLE
-
-      - name: Update android/settings.gradle
-        run: |
-          cat > android/settings.gradle << 'GRADLE'
-          pluginManagement {
-              def flutterSdkPath = {
-                  def properties = new Properties()
-                  file("local.properties").withInputStream { properties.load(it) }
-                  def flutterSdkPath = properties.getProperty("flutter.sdk")
-                  assert flutterSdkPath != null, "flutter.sdk not set in local.properties"
-                  return flutterSdkPath
-              }()
-
-              includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
-
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
-
-          plugins {
-              id "dev.flutter.flutter-plugin-loader" version "1.0.0"
-              id "com.android.application" version "8.1.0" apply false
-              id "com.android.library" version "8.1.0" apply false
-              id "org.jetbrains.kotlin.android" version "1.9.22" apply false
-          }
-
-          include ":app"
-          GRADLE
-
-      - name: Fix Gradle wrapper version
-        run: |
-          mkdir -p android/gradle/wrapper
-          cat > android/gradle/wrapper/gradle-wrapper.properties << 'PROPS'
-          distributionBase=GRADLE_USER_HOME
-          distributionPath=wrapper/dists
-          zipStoreBase=GRADLE_USER_HOME
-          zipStorePath=wrapper/dists
-          distributionUrl=https\://services.gradle.org/distributions/gradle-8.3-all.zip
-          PROPS
-
-      - name: Update gradle.properties
-        run: |
-          cat > android/gradle.properties << 'PROPS'
-          org.gradle.jvmargs=-Xmx4G
-          android.useAndroidX=true
-          android.enableJetifier=true
-          PROPS
 
       - run: flutter pub get
 
