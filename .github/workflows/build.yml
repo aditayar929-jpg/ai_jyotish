@@ -22,16 +22,34 @@ jobs:
           channel: 'stable'
 
       - name: Generate Android/iOS structure
-        run: |
-          flutter create --org com.aijyotish --project-name ai_jyotish --platforms android,ios temp_project
-          cp -r temp_project/android android
-          cp -r temp_project/ios ios
-          rm -rf temp_project
+        run: flutter create --org com.aijyotish --project-name ai_jyotish --platforms android,ios .
 
-      - name: Upgrade Gradle wrapper to 8.3
+      - name: Fix Gradle version and Flutter plugin setup
         run: |
-          cd android
-          sed -i 's|gradle-[0-9.]*-all.zip|gradle-8.3-all.zip|g' gradle/wrapper/gradle-wrapper.properties
+          # Upgrade Gradle wrapper (flutter create generates 7.6.3, AGP needs 8.0+)
+          sed -i 's|gradle-[0-9.]*-all\.zip|gradle-8.3-all.zip|g' android/gradle/wrapper/gradle-wrapper.properties
+
+          # Fix root build.gradle - ensure library plugins get Flutter extension
+          cat > android/build.gradle << 'GRADLE'
+          allprojects {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+
+          rootProject.buildDir = "../build"
+          subprojects {
+              project.buildDir = "${rootProject.buildDir}/${project.name}"
+          }
+          subprojects {
+              project.evaluationDependsOn(":app")
+          }
+
+          tasks.register("clean", Delete) {
+              delete rootProject.buildDir
+          }
+          GRADLE
 
       - run: flutter pub get
 
