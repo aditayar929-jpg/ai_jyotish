@@ -21,115 +21,17 @@ jobs:
           flutter-version: '3.24.0'
           channel: 'stable'
 
-      - name: Create Flutter project structure
+      - name: Generate Android/iOS structure
         run: |
           flutter create --org com.aijyotish --project-name ai_jyotish --platforms android,ios temp_project
           cp -r temp_project/android android
           cp -r temp_project/ios ios
           rm -rf temp_project
 
-      - name: Fix root build.gradle with Flutter plugin
+      - name: Upgrade Gradle wrapper to 8.3
         run: |
-          cat > android/build.gradle << 'GRADLE'
-          plugins {
-              id "com.android.application" version "8.1.0" apply false
-              id "com.android.library" version "8.1.0" apply false
-              id "org.jetbrains.kotlin.android" version "1.9.22" apply false
-              id "dev.flutter.flutter-gradle-plugin" apply false
-          }
-          GRADLE
-
-      - name: Fix Gradle wrapper and properties
-        run: |
-          mkdir -p android/gradle/wrapper
-          cat > android/gradle/wrapper/gradle-wrapper.properties << 'PROPS'
-          distributionBase=GRADLE_USER_HOME
-          distributionPath=wrapper/dists
-          zipStoreBase=GRADLE_USER_HOME
-          zipStorePath=wrapper/dists
-          distributionUrl=https\://services.gradle.org/distributions/gradle-8.3-all.zip
-          PROPS
-          cat > android/gradle.properties << 'PROPS'
-          org.gradle.jvmargs=-Xmx4G
-          android.useAndroidX=true
-          android.enableJetifier=true
-          PROPS
-
-      - name: Fix settings.gradle with Flutter plugin loader
-        run: |
-          cat > android/settings.gradle << 'GRADLE'
-          pluginManagement {
-              def flutterSdkPath = {
-                  def properties = new Properties()
-                  file("local.properties").withInputStream { properties.load(it) }
-                  def flutterSdkPath = properties.getProperty("flutter.sdk")
-                  assert flutterSdkPath != null, "flutter.sdk not set in local.properties"
-                  return flutterSdkPath
-              }()
-
-              includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
-
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
-
-          plugins {
-              id "dev.flutter.flutter-plugin-loader" version "1.0.0"
-              id "com.android.application" version "8.1.0" apply false
-              id "com.android.library" version "8.1.0" apply false
-              id "org.jetbrains.kotlin.android" version "1.9.22" apply false
-          }
-
-          include ":app"
-          GRADLE
-
-      - name: Override app build.gradle for signing and minification
-        run: |
-          cat > android/app/build.gradle << 'GRADLE'
-          plugins {
-              id "com.android.application"
-              id "kotlin-android"
-              id "dev.flutter.flutter-gradle-plugin"
-          }
-
-          android {
-              namespace "com.aijyotish.app"
-              compileSdk 35
-              ndkVersion flutter.ndkVersion
-
-              compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_17
-                  targetCompatibility JavaVersion.VERSION_17
-              }
-
-              kotlinOptions {
-                  jvmTarget = '17'
-              }
-
-              defaultConfig {
-                  applicationId "com.aijyotish.app"
-                  minSdk 23
-                  targetSdk 35
-                  versionCode 1
-                  versionName "1.0.0"
-              }
-
-              buildTypes {
-                  release {
-                      signingConfig signingConfigs.debug
-                      minifyEnabled true
-                      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-                  }
-              }
-          }
-
-          flutter {
-              source '../..'
-          }
-          GRADLE
+          cd android
+          sed -i 's|gradle-[0-9.]*-all.zip|gradle-8.3-all.zip|g' gradle/wrapper/gradle-wrapper.properties
 
       - run: flutter pub get
 
