@@ -126,6 +126,17 @@ jobs:
           include ":app"
           GRADLE
 
+      - name: Fix Gradle wrapper version
+        run: |
+          mkdir -p android/gradle/wrapper
+          cat > android/gradle/wrapper/gradle-wrapper.properties << 'PROPS'
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.3-all.zip
+          PROPS
+
       - name: Update gradle.properties
         run: |
           cat > android/gradle.properties << 'PROPS'
